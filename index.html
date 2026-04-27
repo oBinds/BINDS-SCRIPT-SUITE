@@ -182,7 +182,8 @@ footer p{color:#3a3a4a;font-size:0.85rem;margin-bottom:5px;}
         {id:'2k',    name:'2K',                     desc:'NBA 2K features',   icon:'🏀'},
         {id:'roblox',name:'Roblox',                 desc:'Roblox features',   icon:'🎮'},
         {id:'led',   name:'LED Guide',              desc:'LED colors',        icon:'💡'},
-        {id:'qref',  name:'Quick Reference',        desc:'Button cheat sheet',icon:'⚡'}
+        {id:'qref',  name:'Quick Reference',        desc:'Button cheat sheet',icon:'⚡'},
+        {id:'dl',    name:'Download Script',        desc:'Get the latest version', icon:'⬇️', download:true}
       ]
     },
     fps: {
@@ -193,7 +194,8 @@ footer p{color:#3a3a4a;font-size:0.85rem;margin-bottom:5px;}
         {id:'bo7', name:'BO7 / Warzone',            desc:'Black Ops 7 + WZ',  icon:'💀'},
         {id:'bo3', name:'BO3',                      desc:'Black Ops 3',       icon:'🎯'},
         {id:'led', name:'LED Guide',                desc:'LED colors',        icon:'💡'},
-        {id:'qref',name:'Quick Reference',          desc:'Button cheat sheet',icon:'⚡'}
+        {id:'qref',name:'Quick Reference',          desc:'Button cheat sheet',icon:'⚡'},
+        {id:'dl',  name:'Download Script',          desc:'Get the latest version', icon:'⬇️', download:true}
       ]
     },
     horror: {
@@ -204,9 +206,17 @@ footer p{color:#3a3a4a;font-size:0.85rem;margin-bottom:5px;}
         {id:'f13', name:'Friday the 13th',          desc:'F13 features',      icon:'🔪'},
         {id:'hw',  name:'Halloween',               desc:'Coming soon',       icon:'🎃'},
         {id:'led', name:'LED Guide',               desc:'LED colors',        icon:'💡'},
-        {id:'qref',name:'Quick Reference',         desc:'Button cheat sheet',icon:'⚡'}
+        {id:'qref',name:'Quick Reference',         desc:'Button cheat sheet',icon:'⚡'},
+        {id:'dl',  name:'Download Script',         desc:'Get the latest version', icon:'⬇️', download:true}
       ]
     }
+  };
+
+  // ── Download URLs — replace these with your actual links ──
+  var DL_URLS = {
+    multi:  'https://discord.gg/rtEyfx8mcT',
+    fps:    'https://discord.gg/QaHCr4GU2Q',
+    horror: 'https://discord.gg/BeFDC4vWFY'
   };
 
   var SUBSECS = {
@@ -276,6 +286,14 @@ footer p{color:#3a3a4a;font-size:0.85rem;margin-bottom:5px;}
     var grid = document.getElementById('game-grid');
     grid.style.setProperty('--c', sc.color);
     grid.innerHTML = sc.games.map(function(g){
+      if (g.download) {
+        return '<div class="game-card dl-card" data-action="download-script" data-script="' + s + '" style="--c:' + sc.color + ';border-style:dashed;">'
+          + '<div class="gc-icon">' + g.icon + '</div>'
+          + '<div class="gc-name" style="font-size:0.85rem;">DOWNLOAD</div>'
+          + '<div class="gc-name">' + sc.name + '</div>'
+          + '<div class="gc-desc">' + g.desc + '</div>'
+          + '</div>';
+      }
       return '<div class="game-card" data-action="pick-game" data-script="' + s + '" data-game="' + g.id + '" style="--c:' + sc.color + ';">'
         + '<div class="gc-icon">' + g.icon + '</div>'
         + '<div class="gc-name">' + g.name + '</div>'
@@ -368,6 +386,14 @@ footer p{color:#3a3a4a;font-size:0.85rem;margin-bottom:5px;}
           goHub();
         } else if (action === 'go-games') {
           pickScript(curScript);
+        } else if (action === 'download-script') {
+          var sc2 = el.getAttribute('data-script');
+          var url = DL_URLS[sc2];
+          if (url && url.indexOf('YOUR_') === -1) {
+            window.open(url, '_blank');
+          } else {
+            alert('Download link not set yet. Contact @o.binds on Discord or Instagram to get the script.');
+          }
         }
         return;
       }
