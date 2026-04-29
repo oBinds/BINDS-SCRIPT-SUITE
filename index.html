@@ -116,76 +116,55 @@ footer{text-align:center;padding:38px 0;border-top:1px solid rgba(255,255,255,0.
 footer p{color:#3a3a4a;font-size:0.85rem;margin-bottom:5px;}
 .f-author{font-family:'Orbitron',sans-serif;font-weight:700;font-size:0.9rem;color:#555;}
 @media(max-width:600px){.logo{font-size:1.75rem;}.feature-header{flex-direction:column;}}
-@keyframes rgbBorder {
-  0% {
-    border-color: #ff0033;
-    box-shadow: 0 0 60px rgba(255,0,0,0.5);
-  }
-  33% {
-    border-color: #0066ff;
-    box-shadow: 0 0 60px rgba(0,100,255,0.5);
-  }
-  66% {
-    border-color: #00ff88;
-    box-shadow: 0 0 60px rgba(0,255,100,0.5);
-  }
-  100% {
-    border-color: #ff0033;
-    box-shadow: 0 0 60px rgba(255,0,0,0.5);
-  }
-}
 
-@keyframes rgbText {
-  0% {
-    color: #ff0033;
-    text-shadow: 0 0 25px #ff0033;
-  }
-  33% {
-    color: #0066ff;
-    text-shadow: 0 0 25px #0066ff;
-  }
-  66% {
-    color: #00ff88;
-    text-shadow: 0 0 25px #00ff88;
-  }
-  100% {
-    color: #ff0033;
-    text-shadow: 0 0 25px #ff0033;
-  }
-}
-@keyframes move {
-  0% { background-position: 0% 50%; }
-  100% { background-position: 300% 50%; }
-}
-.rainbow-glow::before {
-  content: "";
-  position: absolute;
-  inset: -3px;
-  border-radius: 26px;
-  z-index: -1;
-  background: linear-gradient(90deg, #00ff00, #0000ff, #ff0000, #00ff00);
-  background-size: 300% 300%;
-  animation: move 2s linear infinite;
-  filter: blur(8px);
-}
-</style>
+    /* RGB glow card */
+    .rgb-card {
+      position: relative;
+      z-index: 1;
+    }
+    .rgb-card::before {
+      content: "";
+      position: absolute;
+      inset: -3px;
+      border-radius: 27px;
+      z-index: -1;
+      background: linear-gradient(90deg, #00ff00, #0000ff, #ff0000, #00ff00);
+      background-size: 300% 300%;
+      animation: rgbMove 2s linear infinite;
+      filter: blur(6px);
+      opacity: 1;
+    }
+    .rgb-card::after {
+      content: "";
+      position: absolute;
+      inset: 0;
+      border-radius: 24px;
+      background: rgba(12,12,25,0.96);
+      z-index: -1;
+    }
+    @keyframes rgbMove {
+      0%   { background-position: 0% 50%; }
+      100% { background-position: 300% 50%; }
+    }
+
+    </style>
 </head>
 <body class="t-hub">
 <!-- ==================== NICER NEON KEY LOCK SCREEN ==================== -->
 <div id="locked" style="position:fixed; top:0; left:0; width:100%; height:100%; background:#0a0a0f; z-index:9999; display:flex; align-items:center; justify-content:center; font-family:'Rajdhani',sans-serif; color:#fff; overflow:hidden;">
-  <div class="rainbow-glow" style="max-width:480px; width:90%; padding:60px 50px; background:#0c0c19; border-radius:24px; text-align:center; position:relative;">
-    <h2 style="font-family:'Orbitron',sans-serif; font-size:2.8rem; margin-bottom:8px; letter-spacing:6px; color:#fff;">ACCESS REQUIRED</h2>
+  <div class="rgb-card" style="max-width:480px; padding:60px 50px; background:rgba(12,12,25,0.96); border:none; border-radius:24px; text-align:center; position:relative;">
+    <h2 style="font-family:'Orbitron',sans-serif; font-size:2.8rem; margin-bottom:8px; letter-spacing:6px; color:#00ff88; text-shadow:0 0 25px #00ff88;">ACCESS REQUIRED</h2>
     <p style="color:#999; margin-bottom:35px;">Enter your key to unlock the BINDS Script Suite</p>
     
     <input id="keyInput" placeholder="ENTER KEY" 
            style="width:100%; padding:18px; margin-bottom:25px; background:#111; border:2px solid #444; border-radius:12px; color:#fff; font-size:1.35rem; text-align:center; letter-spacing:5px; font-family:monospace; outline:none;">
     
     <button onclick="checkKey()" 
-            style="width:100%; padding:18px; background:#fff; color:#000; font-weight:900; font-size:1.35rem; border:none; border-radius:12px; cursor:pointer; transition:0.3s;">
+            style="width:100%; padding:18px; background:linear-gradient(to right, #00ff88, #00cc66); color:#000; font-weight:900; font-size:1.35rem; border:none; border-radius:12px; cursor:pointer; box-shadow:0 0 30px rgba(0,255,136,0.5); transition:0.3s;">
       UNLOCK SUITE
     </button>
     
-    <p id="status" style="margin-top:28px; min-height:28px; font-size:1.05rem; font-weight:500; color:#fff;"></p>
+    <p id="status" style="margin-top:28px; min-height:28px; font-size:1.05rem; font-weight:500;"></p>
   </div>
 </div>
 <!-- ==================== END LOCK SCREEN ==================== -->
@@ -480,10 +459,10 @@ footer p{color:#3a3a4a;font-size:0.85rem;margin-bottom:5px;}
 <!-- FIREBASE KEY PROTECTION -->
 <script type="module">
   import { initializeApp } from "https://www.gstatic.com/firebasejs/12.12.1/firebase-app.js";
-  import { getFirestore, doc, getDoc } from "https://www.gstatic.com/firebasejs/12.12.1/firebase-firestore.js";
+  import { getFirestore, doc, getDoc, updateDoc, arrayUnion } from "https://www.gstatic.com/firebasejs/12.12.1/firebase-firestore.js";
 
   const firebaseConfig = {
-    apiKey: "AIzaSyAg9hs9GKq5jMF_WeyUwSva-x2jkYbBnxY",
+    apiKey: "AIzaSyCJlq0Thd3EZ3RrZoftwrqY0J9BgmNFS08",
     authDomain: "binds-scripts.firebaseapp.com",
     projectId: "binds-scripts",
     storageBucket: "binds-scripts.firebasestorage.app",
@@ -494,40 +473,115 @@ footer p{color:#3a3a4a;font-size:0.85rem;margin-bottom:5px;}
   const app = initializeApp(firebaseConfig);
   const db = getFirestore(app);
 
-  window.checkKey = async function() {
-    const key = document.getElementById("keyInput").value.trim();
-    const status = document.getElementById("status");
-
-    if (!key) {
-      status.style.color = "#ff6666";
-      status.textContent = "Please enter a key";
-      return;
+  // ── Device fingerprint ────────────────────────────────────────────────
+  function getFingerprint() {
+    const parts = [
+      navigator.userAgent,
+      navigator.language,
+      screen.width + "x" + screen.height,
+      screen.colorDepth,
+      new Date().getTimezoneOffset(),
+      navigator.hardwareConcurrency || "?",
+      navigator.platform || "?"
+    ];
+    let hash = 0;
+    const str = parts.join("|");
+    for (let i = 0; i < str.length; i++) {
+      hash = ((hash << 5) - hash) + str.charCodeAt(i);
+      hash |= 0;
     }
+    return "FP_" + Math.abs(hash).toString(36).toUpperCase();
+  }
 
+  // ── Unlock site ───────────────────────────────────────────────────────
+  function unlockSite(key) {
+    localStorage.setItem("binds_key", key);
+    document.getElementById("locked").style.display = "none";
+    document.getElementById("main-site").style.display = "block";
+  }
+
+  // ── Auto-login on load ────────────────────────────────────────────────
+  async function tryAutoLogin() {
+    const saved = localStorage.getItem("binds_key");
+    if (!saved) return;
+    const status = document.getElementById("status");
     status.style.color = "#aaa";
-    status.textContent = "Checking key...";
+    status.textContent = "Resuming session...";
+    document.getElementById("keyInput").value = saved;
+    await validateKey(saved, true);
+  }
+
+  // ── Core key validation ───────────────────────────────────────────────
+  async function validateKey(key, silent) {
+    const status = document.getElementById("status");
+    const fp = getFingerprint();
 
     try {
       const ref = doc(db, "keys", key);
       const snap = await getDoc(ref);
 
-      if (snap.exists() && snap.data().active === true) {
-        document.getElementById("locked").style.display = "none";
-        document.getElementById("main-site").style.display = "block";
-      } else {
-        status.style.color = "#ff6666";
-        status.textContent = "Invalid or inactive key";
+      if (!snap.exists()) {
+        if (!silent) { status.style.color = "#ff6666"; status.textContent = "Invalid key"; }
+        localStorage.removeItem("binds_key");
+        return;
       }
+
+      const data = snap.data();
+
+      if (!data.active) {
+        status.style.color = "#ff6666"; status.textContent = "Key is inactive";
+        localStorage.removeItem("binds_key"); return;
+      }
+
+      if (data.expiresAt) {
+        const exp = data.expiresAt.toDate ? data.expiresAt.toDate() : new Date(data.expiresAt);
+        if (exp < new Date()) {
+          status.style.color = "#ff6666"; status.textContent = "Key has expired";
+          localStorage.removeItem("binds_key"); return;
+        }
+      }
+
+      const deviceLimit = data.deviceLimit !== undefined ? data.deviceLimit : 1;
+      const boundDevices = data.boundDevices || [];
+
+      if (deviceLimit === 0) {
+        status.style.color = "#ff6666"; status.textContent = "Key is disabled";
+        localStorage.removeItem("binds_key"); return;
+      }
+
+      const alreadyBound = boundDevices.includes(fp);
+
+      if (!alreadyBound) {
+        if (deviceLimit !== -1 && boundDevices.length >= deviceLimit) {
+          status.style.color = "#ff6666";
+          status.textContent = "Device limit reached (" + deviceLimit + " device" + (deviceLimit === 1 ? "" : "s") + ")";
+          localStorage.removeItem("binds_key"); return;
+        }
+        await updateDoc(ref, { boundDevices: arrayUnion(fp) });
+      }
+
+      unlockSite(key);
+
     } catch (err) {
       status.style.color = "#ff6666";
       status.textContent = "Error. Please try again.";
+      console.error(err);
     }
+  }
+
+  window.checkKey = async function() {
+    const key = document.getElementById("keyInput").value.trim();
+    const status = document.getElementById("status");
+    if (!key) { status.style.color = "#ff6666"; status.textContent = "Please enter a key"; return; }
+    status.style.color = "#aaa"; status.textContent = "Checking key...";
+    await validateKey(key, false);
   };
 
-  // Press Enter to unlock
   document.getElementById("keyInput").addEventListener("keypress", function(e) {
-    if (e.key === "Enter") checkKey();
+    if (e.key === "Enter") window.checkKey();
   });
+
+  tryAutoLogin();
 </script>
 </body>
 </html>
