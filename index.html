@@ -33,9 +33,13 @@ header{text-align:center;margin-bottom:44px;}
 
 /* hub cards */
 .hub-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:22px;}
-.hub-card{background:rgba(255,255,255,0.03);border:1px solid rgba(255,255,255,0.07);border-radius:16px;padding:38px 24px;cursor:pointer;transition:all 0.28s;position:relative;overflow:hidden;text-align:center;user-select:none;}
-.hub-card::before{content:'';position:absolute;top:0;left:0;width:100%;height:4px;background:var(--c);box-shadow:0 0 18px var(--c);}
-.hub-card:hover{transform:translateY(-7px);border-color:var(--c);box-shadow:0 0 30px var(--c);}
+@property --angle{syntax:"<angle>";initial-value:0deg;inherits:false;}
+@keyframes spin{to{--angle:360deg;}}
+.hub-card{background:#0d0d1a;border:2px solid transparent;border-radius:16px;padding:38px 24px;cursor:pointer;transition:transform 0.28s,box-shadow 0.28s;position:relative;text-align:center;user-select:none;}
+.hub-card::before{content:'';position:absolute;inset:-2px;border-radius:18px;z-index:0;background:conic-gradient(from var(--angle),var(--c),color-mix(in srgb,var(--c) 30%,#fff 70%),var(--c),color-mix(in srgb,var(--c) 15%,#000 85%),var(--c));animation:spin 3s linear infinite;}
+.hub-card::after{content:'';position:absolute;inset:2px;border-radius:15px;background:#0d0d1a;z-index:1;}
+.hub-card>*{position:relative;z-index:2;}
+.hub-card:hover{transform:translateY(-7px);box-shadow:0 0 40px var(--c),0 0 80px color-mix(in srgb,var(--c) 40%,transparent);}
 .hc-icon{font-size:2.6rem;margin-bottom:14px;}
 .hc-title{font-family:'Orbitron',sans-serif;font-size:1.25rem;font-weight:900;letter-spacing:2px;color:var(--c);text-shadow:0 0 9px var(--c);margin-bottom:7px;}
 .hc-desc{color:#666;font-size:0.88rem;margin-bottom:18px;}
@@ -549,8 +553,22 @@ footer p{color:#3a3a4a;font-size:0.85rem;margin-bottom:5px;}
           btn.disabled = false; btn.textContent = 'UNLOCK ACCESS'; return;
         }
       }
-      // Valid — unlock
+      // Valid — unlock + update device count
       sessionStorage.setItem('binds_key', raw); startRecheckLoop(raw);
+      var docId = snap.docs[0].id;
+      var deviceId = sessionStorage.getItem('binds_device');
+      if (!deviceId) {
+        deviceId = 'dev_' + Math.random().toString(36).substr(2,9);
+        sessionStorage.setItem('binds_device', deviceId);
+      }
+      // Record device in boundDevices array (matches key manager format)
+      try {
+        var boundDevices = data.boundDevices || [];
+        if (!boundDevices.includes(deviceId)) {
+          boundDevices.push(deviceId);
+          await gateDb.collection('keys').doc(docId).update({ boundDevices: boundDevices });
+        }
+      } catch(de) { /* silent */ }
       document.getElementById('key-gate').classList.add('hidden');
       btn.disabled = false; btn.textContent = 'UNLOCK ACCESS';
     } catch(err) {
