@@ -147,11 +147,13 @@ footer p{color:#3a3a4a;font-size:0.85rem;margin-bottom:5px;}
     @keyframes borderSpin{to{--angle:360deg;}}
 
     /* ── Verify Overlay ── */
-    #verify-overlay{position:fixed;inset:0;background:rgba(4,4,12,0.92);z-index:9998;display:none;align-items:center;justify-content:center;flex-direction:column;gap:16px;pointer-events:all;}
+    #verify-overlay{position:fixed;inset:0;background:rgba(4,4,12,0.95);z-index:9998;display:none;align-items:center;justify-content:center;flex-direction:column;gap:0;pointer-events:all;}
     #verify-overlay.on{display:flex;}
-    .verify-spinner{width:38px;height:38px;border:3px solid rgba(255,255,255,0.08);border-top-color:#3ABEFF;border-radius:50%;animation:spin-v 0.7s linear infinite;}
-    @keyframes spin-v{to{transform:rotate(360deg);}}
-    .verify-text{font-family:'Orbitron',sans-serif;font-size:0.72rem;letter-spacing:3px;color:#3ABEFF;}
+    .verify-bar-wrap{text-align:center;}
+    .verify-bar-track{width:300px;height:5px;background:rgba(255,255,255,0.07);border-radius:3px;overflow:hidden;margin-bottom:16px;}
+    .verify-bar-fill{height:100%;width:0%;background:linear-gradient(90deg,#00ff50,#3ABEFF,#ff2020,#e8b420,#00ff50,#3ABEFF);background-size:300% 100%;border-radius:3px;transition:width 0.85s cubic-bezier(0.4,0,0.6,1);animation:bar-chase 1.4s linear infinite;}
+    @keyframes bar-chase{0%{background-position:0% 0%}100%{background-position:100% 0%}}
+    .verify-text{font-family:'Orbitron',sans-serif;font-size:0.68rem;letter-spacing:3px;color:#444;}
 
   </style>
   <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
@@ -172,8 +174,12 @@ footer p{color:#3a3a4a;font-size:0.85rem;margin-bottom:5px;}
 
 <!-- VERIFY OVERLAY -->
 <div id="verify-overlay">
-  <div class="verify-spinner"></div>
-  <div class="verify-text">VERIFYING KEY...</div>
+  <div class="verify-bar-wrap">
+    <div class="verify-bar-track">
+      <div class="verify-bar-fill" id="verify-bar-fill"></div>
+    </div>
+    <div class="verify-text">VERIFYING KEY...</div>
+  </div>
 </div>
 
 <div class="wrap">
@@ -439,18 +445,13 @@ footer p{color:#3a3a4a;font-size:0.85rem;margin-bottom:5px;}
         e.preventDefault();
         if (action === 'pick-script' || action === 'pick-game') {
           var _s = el.getAttribute('data-script'), _g = el.getAttribute('data-game'), _a = action;
+          showVerify();
           (async function() {
-            var k = localStorage.getItem('binds_key');
-            if (!k) { forceLogout('\u{1F534} No valid key found.'); return; }
-            try {
-              var s = await gateDb.collection('keys').where('key','==',k).limit(1).get();
-              if (s.empty) { var d2 = await gateDb.collection('keys').doc(k).get(); if (d2.exists) s = {empty:false,docs:[d2]}; }
-              if (s.empty) { forceLogout('\u274C Key not found. Contact @o.binds.'); return; }
-              var kd = s.docs[0].data();
-              if (kd.active === false) { forceLogout('\u{1F534} Your key has been deactivated. Contact @o.binds.'); return; }
-              if (kd.expires) { var exp = parseExpDate(kd.expires); if (isExpired(kd.expires)) { forceLogout('\u26A0\uFE0F Your key has expired. Contact @o.binds.'); return; } }
-              if (_a === 'pick-script') pickScript(_s); else pickGame(_s, _g);
-            } catch(e) { if (_a === 'pick-script') pickScript(_s); else pickGame(_s, _g); }
+            var results = await Promise.all([verifyKey(), new Promise(function(r){ setTimeout(r, 900); })]);
+            var ok = results[0];
+            hideVerify();
+            if (!ok) return;
+            if (_a === 'pick-script') pickScript(_s); else pickGame(_s, _g);
           })();
         } else if (action === 'sub-tab') {
           var s = el.getAttribute('data-script');
@@ -471,7 +472,8 @@ footer p{color:#3a3a4a;font-size:0.85rem;margin-bottom:5px;}
           var url = DL_URLS[sc2];
           showVerify();
           (async function() {
-            var ok = await verifyKey();
+            var results = await Promise.all([verifyKey(), new Promise(function(r){ setTimeout(r, 900); })]);
+            var ok = results[0];
             hideVerify();
             if (!ok) return;
             if (url && url.indexOf('YOUR_') === -1) {
@@ -515,8 +517,20 @@ footer p{color:#3a3a4a;font-size:0.85rem;margin-bottom:5px;}
     return isNaN(d.getTime()) ? new Date(0) : d;                                    // string/number, fallback epoch = always expired
   }
   function isExpired(val) { var d = parseExpDate(val); return d !== null && d < new Date(); }
-  function showVerify() { document.getElementById('verify-overlay').classList.add('on'); }
-  function hideVerify() { document.getElementById('verify-overlay').classList.remove('on'); }
+  function showVerify() {
+    var fill = document.getElementById('verify-bar-fill');
+    fill.style.transition = 'none';
+    fill.style.width = '0%';
+    document.getElementById('verify-overlay').classList.add('on');
+    requestAnimationFrame(function(){ requestAnimationFrame(function(){
+      fill.style.transition = 'width 0.85s cubic-bezier(0.4,0,0.6,1)';
+      fill.style.width = '100%';
+    }); });
+  }
+  function hideVerify() {
+    document.getElementById('verify-bar-fill').style.width = '0%';
+    document.getElementById('verify-overlay').classList.remove('on');
+  }
 
   // Central key validator — used by all navigation + download checks
   async function verifyKey() {
