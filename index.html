@@ -146,6 +146,13 @@ footer p{color:#3a3a4a;font-size:0.85rem;margin-bottom:5px;}
     @property --angle{syntax:"<angle>";initial-value:0deg;inherits:false;}
     @keyframes borderSpin{to{--angle:360deg;}}
 
+    /* ── Verify Overlay ── */
+    #verify-overlay{position:fixed;inset:0;background:rgba(4,4,12,0.92);z-index:9998;display:none;align-items:center;justify-content:center;flex-direction:column;gap:16px;pointer-events:all;}
+    #verify-overlay.on{display:flex;}
+    .verify-spinner{width:38px;height:38px;border:3px solid rgba(255,255,255,0.08);border-top-color:#3ABEFF;border-radius:50%;animation:spin-v 0.7s linear infinite;}
+    @keyframes spin-v{to{transform:rotate(360deg);}}
+    .verify-text{font-family:'Orbitron',sans-serif;font-size:0.72rem;letter-spacing:3px;color:#3ABEFF;}
+
   </style>
   <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
@@ -161,6 +168,12 @@ footer p{color:#3a3a4a;font-size:0.85rem;margin-bottom:5px;}
     <button class="gate-btn" id="gate-submit-btn" onclick="checkKey()">UNLOCK ACCESS</button>
     <div class="gate-err" id="gate-err"></div>
   </div>
+</div>
+
+<!-- VERIFY OVERLAY -->
+<div id="verify-overlay">
+  <div class="verify-spinner"></div>
+  <div class="verify-text">VERIFYING KEY...</div>
 </div>
 
 <div class="wrap">
@@ -424,10 +437,21 @@ footer p{color:#3a3a4a;font-size:0.85rem;margin-bottom:5px;}
       var action = el.getAttribute('data-action');
       if (action) {
         e.preventDefault();
-        if (action === 'pick-script') {
-          pickScript(el.getAttribute('data-script'));
-        } else if (action === 'pick-game') {
-          pickGame(el.getAttribute('data-script'), el.getAttribute('data-game'));
+        if (action === 'pick-script' || action === 'pick-game') {
+          var _s = el.getAttribute('data-script'), _g = el.getAttribute('data-game'), _a = action;
+          (async function() {
+            var k = localStorage.getItem('binds_key');
+            if (!k) { forceLogout('\u{1F534} No valid key found.'); return; }
+            try {
+              var s = await gateDb.collection('keys').where('key','==',k).limit(1).get();
+              if (s.empty) { var d2 = await gateDb.collection('keys').doc(k).get(); if (d2.exists) s = {empty:false,docs:[d2]}; }
+              if (s.empty) { forceLogout('\u274C Key not found. Contact @o.binds.'); return; }
+              var kd = s.docs[0].data();
+              if (kd.active === false) { forceLogout('\u{1F534} Your key has been deactivated. Contact @o.binds.'); return; }
+              if (kd.expires) { var exp = parseExpDate(kd.expires); if (isExpired(kd.expires)) { forceLogout('\u26A0\uFE0F Your key has expired. Contact @o.binds.'); return; } }
+              if (_a === 'pick-script') pickScript(_s); else pickGame(_s, _g);
+            } catch(e) { if (_a === 'pick-script') pickScript(_s); else pickGame(_s, _g); }
+          })();
         } else if (action === 'sub-tab') {
           var s = el.getAttribute('data-script');
           var gid = el.getAttribute('data-game');
@@ -445,11 +469,17 @@ footer p{color:#3a3a4a;font-size:0.85rem;margin-bottom:5px;}
         } else if (action === 'download-script') {
           var sc2 = el.getAttribute('data-script');
           var url = DL_URLS[sc2];
-          if (url && url.indexOf('YOUR_') === -1) {
-            window.open(url, '_blank');
-          } else {
-            alert('Download link not set yet. Contact @o.binds on Discord or Instagram to get the script.');
-          }
+          showVerify();
+          (async function() {
+            var ok = await verifyKey();
+            hideVerify();
+            if (!ok) return;
+            if (url && url.indexOf('YOUR_') === -1) {
+              window.open(url, '_blank');
+            } else {
+              alert('Download link not set yet. Contact @o.binds on Discord or Instagram to get the script.');
+            }
+          })();
         }
         return;
       }
@@ -476,6 +506,33 @@ footer p{color:#3a3a4a;font-size:0.85rem;margin-bottom:5px;}
   if (!firebase.apps.length) { firebase.initializeApp(firebaseConfig); }
   var gateDb = firebase.firestore();
 
+  // Robust expiry date parser — handles Firestore Timestamp, plain {seconds} objects, strings, numbers
+  function parseExpDate(val) {
+    if (!val) return null;
+    if (typeof val.toDate === 'function') return val.toDate();                      // Firestore Timestamp
+    if (val.seconds !== undefined) return new Date(val.seconds * 1000);             // plain Timestamp object
+    var d = new Date(val);
+    return isNaN(d.getTime()) ? new Date(0) : d;                                    // string/number, fallback epoch = always expired
+  }
+  function isExpired(val) { var d = parseExpDate(val); return d !== null && d < new Date(); }
+  function showVerify() { document.getElementById('verify-overlay').classList.add('on'); }
+  function hideVerify() { document.getElementById('verify-overlay').classList.remove('on'); }
+
+  // Central key validator — used by all navigation + download checks
+  async function verifyKey() {
+    var k = localStorage.getItem('binds_key');
+    if (!k) { forceLogout('🔴 No valid key found.'); return false; }
+    try {
+      var s = await gateDb.collection('keys').where('key','==',k).limit(1).get();
+      if (s.empty) { var d2 = await gateDb.collection('keys').doc(k).get(); if (d2.exists) s = {empty:false,docs:[d2]}; }
+      if (s.empty) { forceLogout('❌ Key not found. Contact @o.binds.'); return false; }
+      var kd = s.docs[0].data();
+      if (kd.active === false) { forceLogout('🔴 Your key has been deactivated. Contact @o.binds.'); return false; }
+      if (isExpired(kd.expires)) { forceLogout('⚠️ Your key has expired. Contact @o.binds.'); return false; }
+      return true;
+    } catch(e) { return true; } // network error — fail open so valid users aren't locked out
+  }
+
   // Recheck key active status every 30 seconds
   function startRecheckLoop(keyVal) {
     setInterval(async function(){
@@ -484,8 +541,7 @@ footer p{color:#3a3a4a;font-size:0.85rem;margin-bottom:5px;}
         if (s.empty) { var d2 = await gateDb.collection('keys').doc(keyVal).get(); if (d2.exists) s = {empty:false,docs:[d2]}; }
         if (s.empty) { forceLogout(); return; }
         var kd = s.docs[0].data();
-        var exp = kd.expires && (kd.expires.toDate ? kd.expires.toDate() : new Date(kd.expires)) < new Date();
-        if (kd.active === false || exp) forceLogout();
+        if (kd.active === false || isExpired(kd.expires)) { forceLogout('🔴 Your key has been deactivated.'); return; }
       } catch(e){}
     }, 5000);
   }
@@ -506,7 +562,7 @@ footer p{color:#3a3a4a;font-size:0.85rem;margin-bottom:5px;}
         if (s.empty) { forceLogout('❌ Saved key not found. Please re-enter your key.'); return; }
         var kd = s.docs[0].data();
         if (kd.active === false) { forceLogout('🔴 Your key has been deactivated. Contact @o.binds.'); return; }
-        if (kd.expires) { var exp = kd.expires.toDate ? kd.expires.toDate() : new Date(kd.expires); if (exp < new Date()) { forceLogout('⚠️ Your key has expired. Contact @o.binds.'); return; } }
+        if (isExpired(kd.expires)) { forceLogout('⚠️ Your key has expired. Contact @o.binds.'); return; }
         document.getElementById('key-gate').classList.add('hidden');
         startRecheckLoop(storedKey);
       } catch(e) { document.getElementById('key-gate').classList.add('hidden'); }
@@ -547,13 +603,9 @@ footer p{color:#3a3a4a;font-size:0.85rem;margin-bottom:5px;}
         btn.disabled = false; btn.textContent = 'UNLOCK ACCESS'; return;
       }
       // Check expiry
-      if (data.expires) {
-        var now = new Date();
-        var exp = data.expires.toDate ? data.expires.toDate() : new Date(data.expires);
-        if (exp < now) {
-          errEl.textContent = '⚠️ This key has expired. Contact @o.binds.';
-          btn.disabled = false; btn.textContent = 'UNLOCK ACCESS'; return;
-        }
+      if (isExpired(data.expires)) {
+        errEl.textContent = '⚠️ This key has expired. Contact @o.binds.';
+        btn.disabled = false; btn.textContent = 'UNLOCK ACCESS'; return;
       }
       // Valid — unlock + update device count
       localStorage.setItem('binds_key', raw); startRecheckLoop(raw);
