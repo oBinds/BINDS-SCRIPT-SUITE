@@ -489,24 +489,26 @@ footer p{color:#3a3a4a;font-size:0.85rem;margin-bottom:5px;}
       } catch(e){}
     }, 30000);
   }
-  function forceLogout() {
-    sessionStorage.removeItem('binds_key');
+  function forceLogout(msg) {
+    localStorage.removeItem('binds_key');
     document.getElementById('key-gate').classList.remove('hidden');
-    document.getElementById('gate-err').textContent = '🔴 Your key has been deactivated.';
+    document.getElementById('gate-err').textContent = msg || '🔴 Your key has been deactivated.';
     document.getElementById('gate-key-input').value = '';
   }
 
-  // Check if already unlocked in session
-  var storedKey = sessionStorage.getItem('binds_key');
+  // Auto sign-in on load using saved key
+  var storedKey = localStorage.getItem('binds_key');
   if (storedKey) {
     (async function(){
       try {
         var s = await gateDb.collection('keys').where('key','==',storedKey).limit(1).get();
         if (s.empty) { var d2 = await gateDb.collection('keys').doc(storedKey).get(); if (d2.exists) s = {empty:false,docs:[d2]}; }
-        var ok = false;
-        if (!s.empty) { var kd = s.docs[0].data(); var exp = kd.expires && (kd.expires.toDate ? kd.expires.toDate() : new Date(kd.expires)) < new Date(); if (kd.active !== false && !exp) ok = true; }
-        if (ok) { document.getElementById('key-gate').classList.add('hidden'); startRecheckLoop(storedKey); }
-        else { sessionStorage.removeItem('binds_key'); }
+        if (s.empty) { forceLogout('❌ Saved key not found. Please re-enter your key.'); return; }
+        var kd = s.docs[0].data();
+        if (kd.active === false) { forceLogout('🔴 Your key has been deactivated. Contact @o.binds.'); return; }
+        if (kd.expires) { var exp = kd.expires.toDate ? kd.expires.toDate() : new Date(kd.expires); if (exp < new Date()) { forceLogout('⚠️ Your key has expired. Contact @o.binds.'); return; } }
+        document.getElementById('key-gate').classList.add('hidden');
+        startRecheckLoop(storedKey);
       } catch(e) { document.getElementById('key-gate').classList.add('hidden'); }
     })();
   }
@@ -554,24 +556,17 @@ footer p{color:#3a3a4a;font-size:0.85rem;margin-bottom:5px;}
         }
       }
       // Valid — unlock + update device count
-      sessionStorage.setItem('binds_key', raw); startRecheckLoop(raw);
+      localStorage.setItem('binds_key', raw); startRecheckLoop(raw);
       var docId = snap.docs[0].id;
       var deviceId = localStorage.getItem('binds_device');
       if (!deviceId) {
-        deviceId = 'dev_' + Math.random().toString(36).substr(2,9) + '_' + Date.now().toString(36);
+        deviceId = 'dev_' + Math.random().toString(36).substr(2,9);
         localStorage.setItem('binds_device', deviceId);
       }
-      // Device limit enforcement
-      var boundDevices = data.boundDevices || [];
-      var deviceLimit = data.deviceLimit !== undefined ? data.deviceLimit : 1;
-      var isKnownDevice = boundDevices.includes(deviceId);
-      if (!isKnownDevice && deviceLimit > 0 && boundDevices.length >= deviceLimit) {
-        errEl.textContent = '🚫 Device limit reached for this key. Contact @o.binds.';
-        btn.disabled = false; btn.textContent = 'UNLOCK ACCESS'; return;
-      }
-      // Register device if new
+      // Record device in boundDevices array (matches key manager format)
       try {
-        if (!isKnownDevice) {
+        var boundDevices = data.boundDevices || [];
+        if (!boundDevices.includes(deviceId)) {
           boundDevices.push(deviceId);
           await gateDb.collection('keys').doc(docId).update({ boundDevices: boundDevices });
         }
