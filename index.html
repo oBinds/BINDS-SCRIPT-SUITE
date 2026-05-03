@@ -542,9 +542,9 @@ footer p{color:#3a3a4a;font-size:0.85rem;margin-bottom:5px;}
       if (s.empty) { forceLogout('❌ Key not found. Contact @o.binds.'); return false; }
       var kd = s.docs[0].data();
       if (kd.active === false) { forceLogout('🔴 Your key has been deactivated. Contact @o.binds.'); return false; }
-      if (isExpired(kd.expires)) { forceLogout('⚠️ Your key has expired. Contact @o.binds.'); return false; }
+      if (isExpired(kd.expiresAt)) { forceLogout('⚠️ Your key has expired. Contact @o.binds.'); return false; }
       return true;
-    } catch(e) { return true; } // network error — fail open so valid users aren't locked out
+    } catch(e) { forceLogout('⚠️ Could not verify key. Check your connection.'); return false; }
   }
 
   // Recheck key active status every 30 seconds
@@ -555,7 +555,7 @@ footer p{color:#3a3a4a;font-size:0.85rem;margin-bottom:5px;}
         if (s.empty) { var d2 = await gateDb.collection('keys').doc(keyVal).get(); if (d2.exists) s = {empty:false,docs:[d2]}; }
         if (s.empty) { forceLogout(); return; }
         var kd = s.docs[0].data();
-        if (kd.active === false || isExpired(kd.expires)) { forceLogout('🔴 Your key has been deactivated.'); return; }
+        if (kd.active === false || isExpired(kd.expiresAt)) { forceLogout('🔴 Your key has been deactivated.'); return; }
       } catch(e){}
     }, 5000);
   }
@@ -576,10 +576,10 @@ footer p{color:#3a3a4a;font-size:0.85rem;margin-bottom:5px;}
         if (s.empty) { forceLogout('❌ Saved key not found. Please re-enter your key.'); return; }
         var kd = s.docs[0].data();
         if (kd.active === false) { forceLogout('🔴 Your key has been deactivated. Contact @o.binds.'); return; }
-        if (isExpired(kd.expires)) { forceLogout('⚠️ Your key has expired. Contact @o.binds.'); return; }
+        if (isExpired(kd.expiresAt)) { forceLogout('⚠️ Your key has expired. Contact @o.binds.'); return; }
         document.getElementById('key-gate').classList.add('hidden');
         startRecheckLoop(storedKey);
-      } catch(e) { document.getElementById('key-gate').classList.add('hidden'); }
+      } catch(e) { document.getElementById('gate-err').textContent = '⚠️ Could not verify key. Check your connection.'; }
     })();
   }
 
@@ -617,7 +617,7 @@ footer p{color:#3a3a4a;font-size:0.85rem;margin-bottom:5px;}
         btn.disabled = false; btn.textContent = 'UNLOCK ACCESS'; return;
       }
       // Check expiry
-      if (isExpired(data.expires)) {
+      if (isExpired(data.expiresAt)) {
         errEl.textContent = '⚠️ This key has expired. Contact @o.binds.';
         btn.disabled = false; btn.textContent = 'UNLOCK ACCESS'; return;
       }
