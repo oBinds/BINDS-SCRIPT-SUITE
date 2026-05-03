@@ -556,15 +556,22 @@ footer p{color:#3a3a4a;font-size:0.85rem;margin-bottom:5px;}
       // Valid — unlock + update device count
       sessionStorage.setItem('binds_key', raw); startRecheckLoop(raw);
       var docId = snap.docs[0].id;
-      var deviceId = sessionStorage.getItem('binds_device');
+      var deviceId = localStorage.getItem('binds_device');
       if (!deviceId) {
-        deviceId = 'dev_' + Math.random().toString(36).substr(2,9);
-        sessionStorage.setItem('binds_device', deviceId);
+        deviceId = 'dev_' + Math.random().toString(36).substr(2,9) + '_' + Date.now().toString(36);
+        localStorage.setItem('binds_device', deviceId);
       }
-      // Record device in boundDevices array (matches key manager format)
+      // Device limit enforcement
+      var boundDevices = data.boundDevices || [];
+      var deviceLimit = data.deviceLimit !== undefined ? data.deviceLimit : 1;
+      var isKnownDevice = boundDevices.includes(deviceId);
+      if (!isKnownDevice && deviceLimit > 0 && boundDevices.length >= deviceLimit) {
+        errEl.textContent = '🚫 Device limit reached for this key. Contact @o.binds.';
+        btn.disabled = false; btn.textContent = 'UNLOCK ACCESS'; return;
+      }
+      // Register device if new
       try {
-        var boundDevices = data.boundDevices || [];
-        if (!boundDevices.includes(deviceId)) {
+        if (!isKnownDevice) {
           boundDevices.push(deviceId);
           await gateDb.collection('keys').doc(docId).update({ boundDevices: boundDevices });
         }
